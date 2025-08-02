@@ -1,5 +1,3 @@
-
-
 import time, json, requests
 from pathlib import Path
 from os.path import getsize
@@ -89,8 +87,7 @@ class SyncLipsyncMainNode:
         webhook_url  = sync_input["webhook_url"]
 
         MAX_BYTES = 20 * 1024 * 1024
-        headers   = {"x-api-key": api_key}
-
+        headers   = {"x-api-key": api_key, "x-sync-source": "comfyui"}
         print(" lipsync_generate called")
 
         try:
