@@ -54,7 +54,8 @@ class SyncLipsyncMainNode:
         return {
             "required": {
                 "sync_input":     ("SYNC_INPUT", {}),
-                "model":          (["lipsync-2", "lipsync-1.9.0-beta"],),
+                # "model":          (["lipsync-2", "lipsync-1.9.0-beta"],),
+                "model": (["lipsync-2-pro", "lipsync-2", "lipsync-1.9.0-beta"],),
                 "segment_secs":   ("STRING", {"default": ""}),
                 "segment_frames": ("STRING", {"default": ""}),
                 "sync_mode":      (
