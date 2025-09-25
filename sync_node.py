@@ -18,6 +18,18 @@
 #     RETURN_NAMES = ("api_key",)
 #     FUNCTION = "provide_api_key"
 #     CATEGORY = "Sync.so/Lipsync"
+    
+#     # Add instructions support
+#     DESCRIPTION = """
+#     Sync.so API Key
+    
+#     Enter your Sync.so API key to authenticate requests. You can get your API key from:
+#     - Visit sync.so dashboard
+#     - Navigate to API settings
+#     - Copy your API key
+    
+#     Key is required for all lipsync operations.
+#     """
 
 #     def provide_api_key(self, api_key):
 #         return ({"api_key": api_key},)
@@ -40,6 +52,21 @@
 #     RETURN_NAMES = ("video",)
 #     FUNCTION = "provide_video"
 #     CATEGORY = "Sync.so/Lipsync"
+    
+#     # Add instructions support
+#     DESCRIPTION = """
+#     Video Input
+    
+#     Provide a video input in one of three ways:
+    
+#     1. Direct Video Connection: Connect a video output from other nodes (e.g., LoadVideo)
+#     2. Local File Path: Enter the full path to a video file on your system
+#     3. Video URL: Enter a direct URL to a video file
+    
+#     Supported formats: MP4
+#     File size limit: 20MB for file uploads
+    
+#     """
 
 #     def provide_video(self, video=None, video_path="", video_url=""):
         
@@ -226,6 +253,25 @@
 #     RETURN_NAMES = ("audio",)
 #     FUNCTION = "provide_audio"
 #     CATEGORY = "Sync.so/Lipsync"
+    
+#     # Add instructions support
+#     DESCRIPTION = """
+#     Audio/TTS Input
+    
+#     Provide audio input in one of the four ways:
+    
+#     1. Direct Audio Connection: Connect audio from other nodes
+#     2. Local Audio File: Enter path to audio file (WAV, MP3, etc.)
+#     3. Audio URL: Enter direct URL to audio file
+    
+#     Text-to-Speech Option:
+#     4. TTS Generation: Use ElevenLabs TTS
+#        - TTS Voice ID: Enter your ElevenLabs voice ID
+#        - TTS Script: Enter the text to be spoken
+    
+#     Priority: TTS takes priority if both voice ID and script are provided.
+    
+#     """
 
 #     def provide_audio(self, audio=None, audio_path="", audio_url="", tts_voice_id="", tts_script=""):
         
@@ -443,6 +489,34 @@
 #     RETURN_NAMES = ("output_path",)
 #     FUNCTION = "lipsync_generate"
 #     CATEGORY = "Sync.so/Lipsync"
+    
+#     # Add instructions support
+#     DESCRIPTION = """
+    
+#     Required Inputs:
+#     - API Key: Connection from API Key node
+#     - Video: Connection from Video Input node  
+#     - Audio: Connection from Audio/TTS Input node
+    
+#     Model Options:
+#     - lipsync-2-pro: Highest quality (Subscription Needed)
+#     - lipsync-2: Balanced quality and speed
+#     - lipsync-1.9.0-beta: Fastest processing
+    
+#     Advanced Settings:
+#     - Segment Secs: JSON array for time-based segments (e.g. [0, 5, 10])
+#     - Segment Frames: JSON array for frame-based segments
+#     - Sync Mode: How to handle audio/video length mismatch
+#       - cut_off: Trim longer content
+#       - loop: Loop shorter content
+#       - bounce: Bounce shorter content
+#       - silence: Add silence to shorter content
+#       - remap: Stretch content to match
+#     - Temperature
+#     - Active Speaker: Enable speaker detection
+#     - Occlusion Detection: Detect when face is blocked
+    
+#     """
 
 #     @classmethod
 #     def VALIDATE_INPUTS(cls, input_types):
@@ -769,6 +843,15 @@
 #     FUNCTION = "passthrough"
 #     CATEGORY = "Sync.so/Lipsync"
 #     OUTPUT_NODE = True
+    
+#     # Add instructions support
+#     DESCRIPTION = """
+#     Lipsync Output
+ 
+#     Optional Settings:
+#     - Custom Video Path: Directory to copy output video
+#     - Custom Video Name: Custom filename for the output video
+#     """
 
 #     def passthrough(self, output_path, custom_video_path="", custom_video_name=""):
 #         try:
@@ -1377,8 +1460,8 @@ class SyncLipsyncMainNode:
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("output_path",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("output_path", "status_message")
     FUNCTION = "lipsync_generate"
     CATEGORY = "Sync.so/Lipsync"
     
@@ -1428,6 +1511,14 @@ class SyncLipsyncMainNode:
         api_key, video, audio, model, segment_secs, segment_frames,
         sync_mode, temperature, active_speaker, occlusion_detection,
     ):
+        # Validate API key
+        if not api_key.get("api_key"):
+            return ("", "Error: API key is required")
+        
+        # Validate inputs
+        if not video or not audio:
+            return ("", "Error: Both video and audio inputs are required")
+        
         api_key_str = api_key["api_key"]
         
         video_path_str = ""
@@ -1521,11 +1612,11 @@ class SyncLipsyncMainNode:
                             "provider": {
                                 "name": "elevenlabs",
                                 "voiceId": tts_voice_id,
-                                "script": tts_script,  # Use "script" as in working standalone example
+                                "script": tts_script,  
                             },
                         },
                         {
-                            "type": "video"  # File will be attached separately
+                            "type": "video"  
                         }
                     ]
                     
@@ -1551,7 +1642,6 @@ class SyncLipsyncMainNode:
                     
                     data["options"] = json.dumps(options)
                     
-                    # Open and attach video file
                     files = {"video": open(video_path_str, "rb")}
                     
                     print(f" Form data: {data}")
@@ -1570,12 +1660,16 @@ class SyncLipsyncMainNode:
 
                 # Add detailed error logging
                 if res.status_code != 200:
-                    print(f" Error response content: {res.text}")
+                    error_response = res.text
+                    print(f" Error response content: {error_response}")
                     try:
                         error_json = res.json()
-                        print(f" Error details: {json.dumps(error_json, indent=2)}")
+                        error_details = json.dumps(error_json, indent=2)
+                        print(f" Error details: {error_details}")
+                        return ("", f"API Error {res.status_code}: {error_details}")
                     except:
                         print(" Could not parse error response as JSON")
+                        return ("", f"API Error {res.status_code}: {error_response}")
 
                 res.raise_for_status()
                 job_id = res.json()["id"]
@@ -1663,6 +1757,9 @@ class SyncLipsyncMainNode:
                     job_id = response.id
                     print(f" Job ID: {job_id}")
 
+            # Status message for successful job submission
+            status_msg = f"🔄 Job submitted successfully!\nModel: {model}\nJob ID: {job_id}\nPolling for completion..."
+
             # ──────── POLLING ────────
             timestamp = int(time.time())
             Path("output").mkdir(exist_ok=True)
@@ -1682,8 +1779,9 @@ class SyncLipsyncMainNode:
                 json.dump({"job_id": job_id, "final_status": status}, f, indent=2)
 
             if status != "COMPLETED":
-                print(" Job failed")
-                return ("",)
+                error_msg = f"❌ Generation failed!\nStatus: {status}\nJob ID: {job_id}"
+                print(f" Job failed: {status}")
+                return ("", error_msg)
 
             output_url = poll.json().get("outputUrl") or (poll.json().get("result") or {}).get("outputUrl")
             segment_output_url = poll.json().get("segmentOutputUrl")
@@ -1707,13 +1805,16 @@ class SyncLipsyncMainNode:
                 segment_output_path.write_bytes(r.content)
                 print(f" Segment video saved to: {segment_output_path}")
 
-            return (str(full_output_path),)
+            # Success message
+            success_msg = f"✅ Generation completed successfully!\nModel: {model}\nJob ID: {job_id}\nOutput: {full_output_path}"
+            return (str(full_output_path), success_msg)
 
         except Exception as e:
-            print(" Exception:", e)
+            error_msg = f"❌ Error during generation:\n{str(e)}"
+            print(f" Exception: {e}")
             import traceback
             traceback.print_exc()
-            return ("",)
+            return ("", error_msg)
 
 
 # ─────────────── OUTPUT NODE ────────────────────────────────
@@ -1859,7 +1960,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SyncApiKeyNode": "sync.so lipsync – api key",
     "SyncVideoInputNode": "sync.so lipsync – video input",
     "SyncAudioInputNode": "sync.so lipsync – audio/tts input",  
-    "SyncLipsyncMainNode": "sync.so lipsync – generate",
+    "SyncLipsyncMainNode": "sync.so lipsync – generate 💰",
     "SyncLipsyncOutputNode": "sync.so lipsync – output",
 }
 
